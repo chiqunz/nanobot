@@ -1,5 +1,5 @@
-from email.message import EmailMessage
 from datetime import date
+from email.message import EmailMessage
 
 import pytest
 
@@ -37,6 +37,31 @@ def _make_raw_email(
     msg["Message-ID"] = "<m1@example.com>"
     msg.set_content(body)
     return msg.as_bytes()
+
+
+class FakeSMTP:
+    """Shared fake SMTP server for tests."""
+
+    def __init__(self, _host: str, _port: int, timeout: int = 30) -> None:
+        self.timeout = timeout
+        self.started_tls = False
+        self.logged_in = False
+        self.sent_messages: list[EmailMessage] = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def starttls(self, context=None):
+        self.started_tls = True
+
+    def login(self, _user: str, _pw: str):
+        self.logged_in = True
+
+    def send_message(self, msg: EmailMessage):
+        self.sent_messages.append(msg)
 
 
 def test_fetch_new_messages_parses_unseen_and_marks_seen(monkeypatch) -> None:
@@ -114,28 +139,6 @@ async def test_start_returns_immediately_without_consent(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_send_uses_smtp_and_reply_subject(monkeypatch) -> None:
-    class FakeSMTP:
-        def __init__(self, _host: str, _port: int, timeout: int = 30) -> None:
-            self.timeout = timeout
-            self.started_tls = False
-            self.logged_in = False
-            self.sent_messages: list[EmailMessage] = []
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-        def starttls(self, context=None):
-            self.started_tls = True
-
-        def login(self, _user: str, _pw: str):
-            self.logged_in = True
-
-        def send_message(self, msg: EmailMessage):
-            self.sent_messages.append(msg)
-
     fake_instances: list[FakeSMTP] = []
 
     def _smtp_factory(host: str, port: int, timeout: int = 30):
@@ -170,25 +173,6 @@ async def test_send_uses_smtp_and_reply_subject(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_send_skips_when_auto_reply_disabled(monkeypatch) -> None:
-    class FakeSMTP:
-        def __init__(self, _host: str, _port: int, timeout: int = 30) -> None:
-            self.sent_messages: list[EmailMessage] = []
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-        def starttls(self, context=None):
-            return None
-
-        def login(self, _user: str, _pw: str):
-            return None
-
-        def send_message(self, msg: EmailMessage):
-            self.sent_messages.append(msg)
-
     fake_instances: list[FakeSMTP] = []
 
     def _smtp_factory(host: str, port: int, timeout: int = 30):
@@ -224,25 +208,6 @@ async def test_send_skips_when_auto_reply_disabled(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_send_skips_when_consent_not_granted(monkeypatch) -> None:
-    class FakeSMTP:
-        def __init__(self, _host: str, _port: int, timeout: int = 30) -> None:
-            self.sent_messages: list[EmailMessage] = []
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-        def starttls(self, context=None):
-            return None
-
-        def login(self, _user: str, _pw: str):
-            return None
-
-        def send_message(self, msg: EmailMessage):
-            self.sent_messages.append(msg)
-
     called = {"smtp": False}
 
     def _smtp_factory(host: str, port: int, timeout: int = 30):
