@@ -38,6 +38,8 @@ slack-sdk = ">=3.26.0"
 qq-botpy = ">=1.0.0"
 python-socks = {version = ">=2.4.0", extras = ["asyncio"]}
 prompt-toolkit = ">=3.0.0"
+mcp = ">=1.0.0"
+json-repair = ">=0.30.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=7.0.0"
